@@ -70,8 +70,7 @@ public class TopFiveAverageMoviesRatedByFemales
     
     public static class ReduceToMovieIdAndRatings extends Reducer<Text, Text, Text, Text> 
     {
-         private ArrayList<Text> User = new ArrayList<Text>();
-         private ArrayList<Text> Rating = new ArrayList<Text>();
+         
          private Text tmp;
          private Map<String,String> Ratings=new HashMap<>();
          private Map<String,String> Users=new HashMap<>();
@@ -113,32 +112,6 @@ public class TopFiveAverageMoviesRatedByFemales
                 }
             }
             
-            /*int sum=0;
-            String test="";
-
-            if(!User.isEmpty() && !Rating.isEmpty())
-            {
-
-                for(Text A : User)
-                {
-                        for(Text B : Rating)
-                        {
-                            String[] tokens = B.toString().split("<>");
-                            //test.put(new Text(tokens[0]), new Text(tokens[1]));
-                            //context.write(new Text(tokens[0]), new Text(tokens[1]));
-                            test=tokens[0];
-                            sum=sum+Integer.parseInt(tokens[1]);
-                            
-                        }
-                        total=Integer.toString(sum);
-                        context.write(new Text(test),new Text(total));
-                }*/
-
-            
-            
-           //context.write(key,new Text(values));
-           //context.write(new Text("******"),new Text("********"));*/
-
         }
     }
     
@@ -204,18 +177,67 @@ public class TopFiveAverageMoviesRatedByFemales
 		protected void cleanup(Context context) throws IOException,
 				InterruptedException {
 			for (Double d:repToRecordMap.keySet()) {
-				context.write(new Text(repToRecordMap.get(d)),new Text(Double.toString(d)));
+				context.write(new Text(repToRecordMap.get(d)),new Text("A::"+Double.toString(d)));
 			}
 		}
+    }
+    
+    public static class MapMovieName extends Mapper<LongWritable, Text, Text, Text> 
+    {
+        //private final static IntWritable one = new IntWritable(1);
+        //Mapper takes value from data set line by line and produces key value pair for each data row in the data set
+    	public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException 
+        {
+	    String line=value.toString();
+            String [] tokenizedLine=line.split("::");
+            String movieId=tokenizedLine[0];
+            String movieName="N::"+tokenizedLine[1];
+            //Take Class of Age and Gender and make it as a key
+            //String keyAgeClass=ageValue.concat(" ").toString().concat(gender);
+            context.write(new Text(movieId),new Text(movieName));
+	 } 
     }
     
     public static class ReduceAverageTop5 extends Reducer<Text, Text, Text, Text> 
     {
         //private IntWritable total = new IntWritable();
+        private Text tmp;
+         private Map<String,String> movieIds=new HashMap<>();
+         private Map<String,String> averages=new HashMap<>();
         public double total;
-	public void reduce(Text key, Text value, Context context) throws IOException, InterruptedException 
+	public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException 
         {
-	   context.write(key, value);
+            movieIds.clear();
+            averages.clear();
+            Iterator<Text> value = values.iterator();
+            while(value.hasNext())
+            {
+                tmp = value.next();
+                String ip = tmp.toString();
+           
+                if(tmp.charAt(0) == 'A')
+                {
+                        String[] tk = ip.split("::");
+                        //Rating.add(new Text(tk[1]));
+                        averages.put(key.toString(),tk[1]);
+                }
+
+                else if(tmp.charAt(0) == 'N')
+                {
+                         String[] lk = ip.split("::");
+                         //User.add(new Text(lk[1]));
+                        movieIds.put(key.toString(),lk[1]);
+                }
+            }
+            
+            for(String s: movieIds.keySet())
+            {
+                if(averages.get(s)!=null)
+                {
+                    context.write(new Text(movieIds.get(s)), new Text(averages.get(s)));
+                }
+            }
+	   //context.write(key, value);
         }
     }
     
@@ -235,7 +257,7 @@ public class TopFiveAverageMoviesRatedByFemales
         job1.setJarByClass(TopFiveAverageMoviesRatedByFemales.class);
 
         job1.setOutputFormatClass(TextOutputFormat.class);
-        FileOutputFormat.setOutputPath(job1, new Path(args[2]));
+        FileOutputFormat.setOutputPath(job1, new Path(args[3]));
         
         boolean flag = job1.waitForCompletion(true);
         boolean flag1=false;
@@ -258,8 +280,8 @@ public class TopFiveAverageMoviesRatedByFemales
             job2.setJarByClass(TopFiveAverageMoviesRatedByFemales.class);
 
             job2.setOutputFormatClass(TextOutputFormat.class);
-            FileInputFormat.addInputPath(job2, new Path(args[2]));
-            FileOutputFormat.setOutputPath(job2, new Path(args[3]));
+            FileInputFormat.addInputPath(job2, new Path(args[3]));
+            FileOutputFormat.setOutputPath(job2, new Path(args[4]));
 
             flag1=job2.waitForCompletion(true);
         }
@@ -269,10 +291,10 @@ public class TopFiveAverageMoviesRatedByFemales
             JobConf conf3 = new JobConf();
             Job job3 = new Job(conf3, "AverageCalculation");
 
-            //org.apache.hadoop.mapreduce.lib.input.MultipleInputs.addInputPath(job2, new Path(args[2]), TextInputFormat.class, Map2_1.class);
-            //org.apache.hadoop.mapreduce.lib.input.MultipleInputs.addInputPath(job2, new Path(args[3]), TextInputFormat.class, Map2_2.class);
+            org.apache.hadoop.mapreduce.lib.input.MultipleInputs.addInputPath(job3, new Path(args[4]), TextInputFormat.class, MapAverageTop5.class);
+            org.apache.hadoop.mapreduce.lib.input.MultipleInputs.addInputPath(job3, new Path(args[2]), TextInputFormat.class, MapMovieName.class);
             
-            job3.setMapperClass(MapAverageTop5.class);
+            //job3.setMapperClass(MapAverageTop5.class);
             job3.setReducerClass(ReduceAverageTop5.class);
             job3.setMapOutputKeyClass(Text.class);
             job3.setMapOutputValueClass(Text.class);
@@ -281,8 +303,8 @@ public class TopFiveAverageMoviesRatedByFemales
             job3.setJarByClass(TopFiveAverageMoviesRatedByFemales.class);
 
             job3.setOutputFormatClass(TextOutputFormat.class);
-            FileInputFormat.addInputPath(job3, new Path(args[3]));
-            FileOutputFormat.setOutputPath(job3, new Path(args[4]));
+            //FileInputFormat.addInputPath(job3, new Path(args[4]));
+            FileOutputFormat.setOutputPath(job3, new Path(args[5]));
 
             flag2=job3.waitForCompletion(true);
             
