@@ -8,6 +8,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -15,7 +16,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.filecache.DistributedCache;
+//import org.apache.hadoop.mapreduce.filecache.DistributedCache;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
@@ -82,10 +83,11 @@ public class GetUserInfoGivenMovieId
         public void setup(Context context) throws IOException, InterruptedException  
         {
 
-            Configuration conf = context.getConfiguration();
-            Path[] p = DistributedCache.getLocalCacheFiles(conf);
+            //Configuration conf = context.getConfiguration();
+            //Path[] p = DistributedCache.getLocalCacheFiles(conf);
+            Path [] files=DistributedCache.getLocalCacheFiles(context.getConfiguration());
             
-            F = new File(p[0].toString());
+            F = new File(files[0].getName().toString());
             /*//Path[] cacheFiles = context.getLocalCacheFiles();
             //F=new File(cacheFiles[0].toString());
             //FileInputStream fileStream = new FileInputStream(cacheFiles[0].toString());
@@ -154,8 +156,8 @@ public class GetUserInfoGivenMovieId
         {
             Configuration conf2 = new Configuration();
             //FileSystem fs = FileSystem.get(conf2);
-            Path Intermediate = new Path(args[1]);
-            DistributedCache.addCacheFile(Intermediate.toUri(), conf2);
+            //Path Intermediate = new Path(args[1]);
+            //DistributedCache.addCacheFile(Intermediate.toUri(), conf2);
             //DistributedCache.addCacheFile(new URI(args[1]),conf2);
 
             Job job2 = new Job(conf2,"UserInfo");
@@ -163,6 +165,7 @@ public class GetUserInfoGivenMovieId
             Configuration conf2 = job.getConfiguration();
             job2.setJobName("Join with Cache");
             DistributedCache.addCacheFile(new URI(args[1]), conf2);*/
+            job2.addCacheFile(new URI(args[1]));
             job2.setOutputKeyClass(Text.class);
             job2.setOutputValueClass(Text.class);
             job2.setJarByClass(GetUserInfoGivenMovieId.class);
